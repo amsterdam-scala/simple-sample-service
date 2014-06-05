@@ -9,8 +9,9 @@ import spray.httpx.SprayJsonSupport._
 
 import domain.SimpleJob
 import processor.ProcessingActor
+import com.sample.service.directives.CustomDirectives
 
-class ApiActor(settings: Settings) extends HttpServiceActor with HttpService with ActorLogging {
+class ApiActor(settings: Settings) extends HttpServiceActor with HttpService with ActorLogging with CustomDirectives {
   import ApiActor._
   import ProcessingActor._
 
@@ -19,22 +20,24 @@ class ApiActor(settings: Settings) extends HttpServiceActor with HttpService wit
   def receive = runRoute(route)
 
   private[service] def route: Route = {
-    path(Ping) {
-      get {
-        complete(StatusCodes.OK -> "pong")
-      }
-    } ~
-      pathPrefix(Api) {
-        path(Service) {
-          post {
-            entity(as[SimpleJob]) { job =>
-              requestContext =>
-                val processor = createProcessor(requestContext)
-                processor ! job
+    withExecutionTime {
+      path(Ping) {
+        get {
+          complete(StatusCodes.OK -> "pong")
+        }
+      } ~
+        pathPrefix(Api) {
+          path(Service) {
+            post {
+              entity(as[SimpleJob]) { job =>
+                requestContext =>
+                  val processor = createProcessor(requestContext)
+                  processor ! job
+              }
             }
           }
         }
-      }
+    }
   }
 
   private[service] def createProcessor(ctx: RequestContext): ActorRef =
